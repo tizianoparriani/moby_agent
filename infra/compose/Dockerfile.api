@@ -6,11 +6,20 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl wget ca-certificates && rm -rf /var/lib/apt/lists/*
 
-# Python deps
+# CPU-only PyTorch (avoids the ~2GB CUDA wheel pulled in by sentence-transformers)
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+
+# Python deps (RAG pipeline + API)
 COPY apps/api/requirements.txt /app/apps/api/requirements.txt
 RUN pip install --no-cache-dir -r /app/apps/api/requirements.txt
 
-# App code
+# Bake the embedding model into the image so there is no runtime download.
+# Cached under HF_HOME; the app loads it from here at startup.
+ENV HF_HOME=/models \
+    HF_HUB_DISABLE_TELEMETRY=1
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-m3')"
+
+# App code (last, so code changes don't invalidate the heavy layers above)
 COPY apps/api /app/apps/api
 
 ENV PYTHONUNBUFFERED=1

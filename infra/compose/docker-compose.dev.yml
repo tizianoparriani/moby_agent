@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   qdrant:
     image: qdrant/qdrant:latest
@@ -8,11 +6,6 @@ services:
       - "6333:6333"
     volumes:
       - qdrant_data:/qdrant/storage
-    healthcheck:
-      test: ["CMD", "curl", "-f", "[localhost](http://localhost:6333/healthz)"]
-      interval: 10s
-      timeout: 3s
-      retries: 10
 
   meilisearch:
     image: getmeili/meilisearch:v1.8
@@ -24,11 +17,6 @@ services:
       - "7700:7700"
     volumes:
       - meili_data:/meili_data
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "[localhost](http://localhost:7700/health)"]
-      interval: 10s
-      timeout: 3s
-      retries: 10
 
   minio:
     image: minio/minio:latest
@@ -42,11 +30,6 @@ services:
       - "9001:9001"
     volumes:
       - minio_data:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "[localhost](http://localhost:9000/minio/health/ready)"]
-      interval: 10s
-      timeout: 3s
-      retries: 10
 
   api:
     build:
@@ -56,12 +39,9 @@ services:
     env_file:
       - ../../.env
     depends_on:
-      qdrant:
-        condition: service_healthy
-      meilisearch:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
+      - qdrant
+      - meilisearch
+      - minio
     ports:
       - "8000:8000"
 
@@ -72,9 +52,11 @@ services:
     container_name: ui
     env_file:
       - ../../.env
+    environment:
+      # Reach the API by its compose service name, not localhost.
+      - API_URL=http://api:8000
     depends_on:
-      api:
-        condition: service_started
+      - api
     ports:
       - "${UI_PORT}:8501"
 
