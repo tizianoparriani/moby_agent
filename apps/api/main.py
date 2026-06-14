@@ -66,12 +66,41 @@ def test_upload(auth: str | None = Header(None, alias="Authorization")):
 
 @app.get("/search")
 def search(q: str = ""):
-    # mock response structure
-    return {"query": q, "results": []}
+    from apps.api.rag.retrieve import retrieve
+
+    hits = retrieve(q)
+    results = [
+        {
+            "doc_id": h.payload.get("doc_id"),
+            "chunk_id": h.chunk_id,
+            "title": h.payload.get("title"),
+            "date": h.payload.get("date"),
+            "page_start": h.payload.get("page_start"),
+            "page_end": h.payload.get("page_end"),
+            "score": round(h.score, 5),
+            "text": h.payload.get("text", ""),
+        }
+        for h in hits
+    ]
+    return {"query": q, "results": results}
 
 @app.post("/chat")
 def chat(payload: dict, auth: str | None = Header(None, alias="Authorization")):
     require_auth(auth)
+    from apps.api.rag.answer import answer_query
+
     query = payload.get("query", "")
-    # mock: no LLM call yet
-    return {"answer": f"(mock) Hai chiesto: {query}", "citations": []}
+    if not query.strip():
+        raise HTTPException(status_code=400, detail="Missing query")
+    result = answer_query(query)
+    citations = [
+        {
+            "doc_id": s.doc_id,
+            "title": s.title,
+            "date": s.date,
+            "page_start": s.page_start,
+            "page_end": s.page_end,
+        }
+        for s in result.sources
+    ]
+    return {"answer": result.answer, "citations": citations}

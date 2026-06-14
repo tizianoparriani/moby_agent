@@ -35,7 +35,18 @@ class Settings(BaseSettings):
     # is treated as scanned and sent through OCR.
     OCR_MIN_CHARS: int = 200
 
+    # Retrieval (hybrid vector + BM25 → reciprocal-rank fusion)
+    RETRIEVAL_TOP_K: int = 50      # candidates fetched from each store
+    FUSION_TOP_N: int = 10         # chunks kept after fusion
+    RRF_K: int = 60                # reciprocal-rank-fusion constant
+    CONTEXT_MAX_TOKENS: int = 4000  # cap on assembled source context
+
+    # Claude (answer generation)
     CLAUDE_API_KEY: str = ""
+    CLAUDE_MODEL: str = "claude-opus-4-8"  # switch to claude-sonnet-4-6 for lower cost
+    MAX_ANSWER_TOKENS: int = 2048
+    # Enable adaptive thinking for harder analytical questions (adds latency).
+    CLAUDE_THINKING: bool = False
 
 
 settings = Settings()
