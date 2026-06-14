@@ -1,24 +1,8 @@
 from fastapi import FastAPI, UploadFile, File, Header, HTTPException
-from pydantic_settings import BaseSettings
 import os, time, boto3, requests
 
-class Settings(BaseSettings):
-    APP_ENV: str = "dev"
-    API_SECRET: str = "dev_secret_token"
+from apps.api.settings import settings
 
-    MINIO_ENDPOINT: str = "[minio](http://minio:9000)"
-    MINIO_ROOT_USER: str = "admin"
-    MINIO_ROOT_PASSWORD: str = "adminadmin"
-    MINIO_BUCKET: str = "docs"
-    MINIO_REGION: str = "us-east-1"
-
-    QDRANT_URL: str = "[qdrant](http://qdrant:6333)"
-    MEILISEARCH_URL: str = "[meilisearch](http://meilisearch:7700)"
-    MEILISEARCH_MASTER_KEY: str = "master_key_dev"
-
-    CLAUDE_API_KEY: str = ""
-
-settings = Settings()
 app = FastAPI(title="MobyPrince RAG API")
 
 def require_auth(auth: str | None):

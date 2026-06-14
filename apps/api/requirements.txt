@@ -3,3 +3,14 @@ uvicorn[standard]==0.30.0
 pydantic-settings==2.3.4
 boto3==1.34.131
 requests==2.32.3
+
+# RAG pipeline (apps/api/rag)
+pymupdf==1.27.2.3
+sentence-transformers==5.5.1
+qdrant-client==1.18.0
+meilisearch==0.41.0
+# NOTE: sentence-transformers pulls in torch. For the API image, install the
+# CPU build to avoid the ~2GB CUDA wheel, e.g. in the Dockerfile:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+# OCR fallback (apps/api/rag/parse.py) additionally needs pytesseract + Pillow
+# and the system package tesseract-ocr-ita; deferred until scanned docs arrive.
