@@ -48,5 +48,15 @@ class Settings(BaseSettings):
     # Enable adaptive thinking for harder analytical questions (adds latency).
     CLAUDE_THINKING: bool = False
 
+    # Auth & user management
+    JWT_SECRET: str = "change_me_in_production"
+    JWT_EXPIRE_HOURS: int = 168  # 7 days
+    DAILY_QUERY_LIMIT: int = 10
+    # Admin account seeded on startup from these env vars (leave empty to skip).
+    ADMIN_USERNAME: str = ""
+    ADMIN_PASSWORD: str = ""
+    # SQLite DB path (mounted as a Docker volume in production).
+    DB_PATH: str = "/data/moby.db"
+
 
 settings = Settings()

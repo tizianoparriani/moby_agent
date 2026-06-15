@@ -13,16 +13,17 @@ RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/wh
 COPY apps/api/requirements.txt /app/apps/api/requirements.txt
 RUN pip install --no-cache-dir -r /app/apps/api/requirements.txt
 
-# Bake the embedding model into the image so there is no runtime download.
-# Cached under HF_HOME; the app loads it from here at startup.
-ENV HF_HOME=/models \
-    HF_HUB_DISABLE_TELEMETRY=1
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-m3')"
+# Bake the embedding model into the image (COPY from local export — no HF Hub at build time).
+# Export on host first: python -c "from sentence_transformers import SentenceTransformer; \
+#   SentenceTransformer('BAAI/bge-m3').save('infra/compose/bge-m3-model')"
+COPY infra/compose/bge-m3-model /models/bge-m3
 
 # App code (last, so code changes don't invalidate the heavy layers above)
 COPY apps/api /app/apps/api
 
-ENV PYTHONUNBUFFERED=1
+ENV PYTHONUNBUFFERED=1 \
+    EMBEDDING_MODEL=/models/bge-m3 \
+    HF_HUB_DISABLE_TELEMETRY=1
 EXPOSE 8000
 
 CMD ["uvicorn", "apps.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

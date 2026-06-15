@@ -44,6 +44,8 @@ services:
       - minio
     ports:
       - "8000:8000"
+    volumes:
+      - db_data:/data
 
   ui:
     build:
@@ -64,3 +66,4 @@ volumes:
   qdrant_data:
   meili_data:
   minio_data:
+  db_data:

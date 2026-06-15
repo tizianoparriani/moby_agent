@@ -20,6 +20,7 @@ logs/
 .terraform/
 .ipynb_checkpoints
 docker-data/
+infra/compose/bge-m3-model/
 .streamlit/
 .cache/
 .python-version
