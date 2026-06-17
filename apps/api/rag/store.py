@@ -78,6 +78,31 @@ def delete_document(doc_id: str) -> None:
     )
 
 
+def patch_document_metadata(doc_id: str, title: str, act_type: str | None) -> int:
+    """Update title/act_type for every chunk of doc_id without touching vectors.
+
+    Returns the number of chunks patched.
+    """
+    qc = _qdrant()
+    doc_filter = qm.Filter(
+        must=[qm.FieldCondition(key="doc_id", match=qm.MatchValue(value=doc_id))]
+    )
+    qc.set_payload(
+        collection_name=settings.QDRANT_COLLECTION,
+        payload={"title": title, "act_type": act_type},
+        points=qm.FilterSelector(filter=doc_filter),
+    )
+
+    mc = _meili().index(settings.MEILISEARCH_INDEX)
+    result = mc.search("", {"filter": f'doc_id = "{doc_id}"', "limit": 5000,
+                            "attributesToRetrieve": ["id"]})
+    ids = [h["id"] for h in result["hits"]]
+    if ids:
+        mc.update_documents([{"id": pt_id, "title": title, "act_type": act_type}
+                              for pt_id in ids])
+    return len(ids)
+
+
 def upsert_chunks(meta: DocMeta, chunks: list[Chunk], vectors: list[list[float]]) -> None:
     if not chunks:
         return
