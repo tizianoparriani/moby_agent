@@ -32,6 +32,8 @@ Formato della risposta:
 class Answer:
     answer: str
     sources: list[Source]  # the sources passed to Claude (for citations / deep-links)
+    input_tokens: int = 0
+    output_tokens: int = 0
 
 
 def _client() -> anthropic.Anthropic:
@@ -68,4 +70,9 @@ def answer_query(query: str) -> Answer:
 
     resp = _client().messages.create(**kwargs)
     text = "".join(b.text for b in resp.content if b.type == "text")
-    return Answer(answer=text, sources=sources)
+    return Answer(
+        answer=text,
+        sources=sources,
+        input_tokens=resp.usage.input_tokens,
+        output_tokens=resp.usage.output_tokens,
+    )

@@ -19,6 +19,13 @@ def _conn():
         con.close()
 
 
+def _add_column_if_missing(con: sqlite3.Connection, table: str, column: str, col_def: str) -> None:
+    try:
+        con.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_def}")
+    except sqlite3.OperationalError:
+        pass  # column already exists
+
+
 def init_db() -> None:
     db_dir = os.path.dirname(settings.DB_PATH)
     if db_dir:
@@ -50,6 +57,10 @@ def init_db() -> None:
                 created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
             );
         """)
+        # migrations for existing DBs
+        _add_column_if_missing(con, "queries", "input_tokens",  "INTEGER")
+        _add_column_if_missing(con, "queries", "output_tokens", "INTEGER")
+        _add_column_if_missing(con, "queries", "model",         "TEXT")
 
 
 def get_user_by_username(username: str) -> dict | None:
@@ -103,11 +114,16 @@ def save_query(
     query: str,
     answer: str | None = None,
     citations_json: str | None = None,
+    input_tokens: int | None = None,
+    output_tokens: int | None = None,
+    model: str | None = None,
 ) -> None:
     with _conn() as con:
         con.execute(
-            "INSERT INTO queries (user_id, endpoint, query, answer, citations_json) VALUES (?, ?, ?, ?, ?)",
-            (user_id, endpoint, query, answer, citations_json),
+            """INSERT INTO queries
+               (user_id, endpoint, query, answer, citations_json, input_tokens, output_tokens, model)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (user_id, endpoint, query, answer, citations_json, input_tokens, output_tokens, model),
         )
 
 
@@ -127,14 +143,29 @@ def get_user_history(user_id: int, limit: int = 50) -> list[dict]:
     return result
 
 
+def get_user_token_usage(user_id: int) -> list[dict]:
+    """Return rows with (model, input_tokens, output_tokens) for cost computation."""
+    with _conn() as con:
+        rows = con.execute(
+            """SELECT model, input_tokens, output_tokens
+               FROM queries
+               WHERE user_id = ? AND input_tokens IS NOT NULL""",
+            (user_id,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def get_all_usage() -> list[dict]:
     with _conn() as con:
         rows = con.execute("""
             SELECT
+                u.id,
                 u.username,
                 u.is_admin,
                 COUNT(q.id) AS total_queries,
-                SUM(CASE WHEN date(q.created_at) = date('now') THEN 1 ELSE 0 END) AS today_queries
+                SUM(CASE WHEN date(q.created_at) = date('now') THEN 1 ELSE 0 END) AS today_queries,
+                COALESCE(SUM(q.input_tokens), 0)  AS total_input_tokens,
+                COALESCE(SUM(q.output_tokens), 0) AS total_output_tokens
             FROM users u
             LEFT JOIN queries q ON q.user_id = u.id
             GROUP BY u.id

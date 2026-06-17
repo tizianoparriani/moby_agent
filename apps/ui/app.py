@@ -92,17 +92,30 @@ def show_auth():
 
 # ── main app ──────────────────────────────────────────────────────────────────
 
+def _donation_banner(donation_url: str, total_cost_usd: float) -> None:
+    """Show cost + donation message. Call only when donation_url is non-empty."""
+    cost_str = f"${total_cost_usd:.4f}" if total_cost_usd >= 0.0001 else "< $0.0001"
+    st.info(
+        f"💸 Le tue query sono costate finora **{cost_str}** in chiamate AI.\n\n"
+        "Questo progetto vive sulle donazioni: le query che fai qualcuno le sta pagando. "
+        "Se non fai donazioni vuol dire che qualcun altro sta pagando per te.\n\n"
+        f"[👉 Fai una donazione su PayPal]({donation_url})",
+        icon=None,
+    )
+
+
 def show_app():
     # header row
     col_title, col_user, col_quota, col_logout = st.columns([4, 2, 2, 1])
     col_title.title("Moby Prince")
     col_user.markdown(f"**{st.session_state.get('username', '')}**")
 
+    quota_data: dict = {}
     try:
         r = requests.get(f"{API_URL}/me/quota", headers=_headers(), timeout=3)
         if r.ok:
-            q = r.json()
-            col_quota.caption(f"Query oggi: {q['used']}/{q['limit']}")
+            quota_data = r.json()
+            col_quota.caption(f"Query oggi: {quota_data['used']}/{quota_data['limit']}")
     except Exception:
         pass
 
@@ -110,6 +123,11 @@ def show_app():
         for k in ("token", "username", "is_admin"):
             st.session_state.pop(k, None)
         st.rerun()
+
+    donation_url = quota_data.get("donation_url", "")
+    total_cost_usd = quota_data.get("total_cost_usd", 0.0)
+    if donation_url:
+        _donation_banner(donation_url, total_cost_usd)
 
     # regular users: Chat, Ricerca, Storico
     # admins: + Status, Storage, Admin
@@ -148,6 +166,10 @@ def show_app():
                             st.caption("Fonti citate")
                             for c in citations:
                                 st.markdown(f"- **{c.get('title')}** ({c.get('date') or 'n/d'}), {_format_pages(c)}")
+                        qc = res.get("query_cost_usd")
+                        if qc is not None:
+                            cost_str = f"${qc:.4f}" if qc >= 0.0001 else "< $0.0001"
+                            st.caption(f"Costo di questa query: {cost_str}")
                 except Exception as e:
                     st.error(f"Errore chat: {e}")
 
@@ -249,8 +271,8 @@ def show_app():
                 users = data.get("users", [])
                 if users:
                     import pandas as pd
-                    df = pd.DataFrame(users, columns=["username", "is_admin", "total_queries", "today_queries"])
-                    df.columns = ["Username", "Admin", "Query totali", "Query oggi"]
+                    df = pd.DataFrame(users, columns=["username", "is_admin", "total_queries", "today_queries", "total_cost_usd"])
+                    df.columns = ["Username", "Admin", "Query totali", "Query oggi", "Costo tot. ($)"]
                     df["Admin"] = df["Admin"].map({0: "", 1: "✓"})
                     st.dataframe(df, use_container_width=True, hide_index=True)
                 else:

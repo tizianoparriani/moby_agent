@@ -57,6 +57,8 @@ class Settings(BaseSettings):
     ADMIN_PASSWORD: str = ""
     # SQLite DB path (mounted as a Docker volume in production).
     DB_PATH: str = "/data/moby.db"
+    # PayPal.me (or any) donation URL — shown to users when non-empty.
+    DONATION_URL: str = ""
 
 
 settings = Settings()

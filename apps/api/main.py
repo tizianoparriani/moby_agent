@@ -21,10 +21,12 @@ from apps.api.db import (
     get_invite_codes,
     get_user_by_username,
     get_user_history,
+    get_user_token_usage,
     init_db,
     save_query,
     upsert_admin,
 )
+from apps.api.pricing import query_cost_usd
 from apps.api.settings import settings
 
 
@@ -137,10 +139,17 @@ def my_history(user: dict = Depends(get_current_user)):
 @app.get("/me/quota")
 def my_quota(user: dict = Depends(get_current_user)):
     used = count_today_queries(user["id"])
+    rows = get_user_token_usage(user["id"])
+    total_cost = sum(
+        query_cost_usd(r["model"] or "", r["input_tokens"] or 0, r["output_tokens"] or 0)
+        for r in rows
+    )
     return {
         "used": used,
         "limit": settings.DAILY_QUERY_LIMIT,
         "remaining": max(0, settings.DAILY_QUERY_LIMIT - used),
+        "total_cost_usd": round(total_cost, 6),
+        "donation_url": settings.DONATION_URL,
     }
 
 
@@ -148,7 +157,16 @@ def my_quota(user: dict = Depends(get_current_user)):
 
 @app.get("/admin/usage")
 def admin_usage(user: dict = Depends(require_admin)):
-    return {"users": get_all_usage(), "daily_limit": settings.DAILY_QUERY_LIMIT}
+    rows = get_all_usage()
+    for r in rows:
+        token_rows = get_user_token_usage(r.pop("id"))
+        r["total_cost_usd"] = round(
+            sum(query_cost_usd(t["model"] or "", t["input_tokens"] or 0, t["output_tokens"] or 0) for t in token_rows),
+            4,
+        )
+        r.pop("total_input_tokens", None)
+        r.pop("total_output_tokens", None)
+    return {"users": rows, "daily_limit": settings.DAILY_QUERY_LIMIT}
 
 
 @app.post("/admin/invites")
@@ -208,8 +226,14 @@ def chat(payload: dict, user: dict = Depends(get_current_user)):
         }
         for s in result.sources
     ]
-    save_query(user["id"], "chat", query, result.answer, json.dumps(citations))
-    return {"answer": result.answer, "citations": citations}
+    save_query(
+        user["id"], "chat", query, result.answer, json.dumps(citations),
+        input_tokens=result.input_tokens,
+        output_tokens=result.output_tokens,
+        model=settings.CLAUDE_MODEL,
+    )
+    cost = query_cost_usd(settings.CLAUDE_MODEL, result.input_tokens, result.output_tokens)
+    return {"answer": result.answer, "citations": citations, "query_cost_usd": round(cost, 6)}
 
 
 # ── storage ───────────────────────────────────────────────────────────────────
