@@ -33,7 +33,15 @@ def _format_pages(item: dict) -> str:
 # ── auth screen ───────────────────────────────────────────────────────────────
 
 def show_auth():
-    st.title("Moby Prince")
+    st.title("Archivio Intelligente — Caso Moby Prince")
+    st.markdown(
+        "Agente AI per la consultazione dell'archivio documentale del caso Moby Prince. "
+        "Poni domande in linguaggio naturale e ricevi risposte citate direttamente dalle fonti: "
+        "atti giudiziari, perizie, relazioni parlamentari e testimonianze."
+    )
+    st.info("Accedi o registrati per iniziare a interrogare l'archivio.", icon="🔐")
+    st.caption("Per assistenza o per richiedere un account scrivere a moby-agent-info@libero.it")
+    st.divider()
     tab_login, tab_register = st.tabs(["Accedi", "Registrati"])
 
     with tab_login:
