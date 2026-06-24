@@ -35,6 +35,7 @@ services:
     build:
       context: ../../
       dockerfile: infra/compose/Dockerfile.api
+    image: compose-api:latest
     container_name: api
     env_file:
       - ../../.env
@@ -51,6 +52,7 @@ services:
     build:
       context: ../../
       dockerfile: infra/compose/Dockerfile.ui
+    image: compose-ui:latest
     container_name: ui
     env_file:
       - ../../.env
