@@ -150,6 +150,7 @@ def my_quota(user: dict = Depends(get_current_user)):
         "remaining": max(0, settings.DAILY_QUERY_LIMIT - used),
         "total_cost_usd": round(total_cost, 6),
         "donation_url": settings.DONATION_URL,
+        "kofi_url": settings.KOFI_URL,
     }
 
 

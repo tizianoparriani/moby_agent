@@ -20,6 +20,7 @@ COPY infra/compose/bge-m3-model /models/bge-m3
 
 # App code (last, so code changes don't invalidate the heavy layers above)
 COPY apps/api /app/apps/api
+COPY infra/init /app/infra/init
 
 ENV PYTHONUNBUFFERED=1 \
     EMBEDDING_MODEL=/models/bge-m3 \

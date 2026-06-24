@@ -100,14 +100,17 @@ def show_auth():
 
 # ── main app ──────────────────────────────────────────────────────────────────
 
-def _donation_banner(donation_url: str, total_cost_usd: float) -> None:
+def _donation_banner(donation_url: str, total_cost_usd: float, kofi_url: str = "") -> None:
     """Show cost + donation message. Call only when donation_url is non-empty."""
     cost_str = f"${total_cost_usd:.4f}" if total_cost_usd >= 0.0001 else "< $0.0001"
+    links = f"[👉 Dona su PayPal]({donation_url})"
+    if kofi_url:
+        links += f"   |   [☕ Dona su Ko-fi]({kofi_url})"
     st.info(
         f"💸 Le tue query sono costate finora **{cost_str}** in chiamate AI.\n\n"
         "Questo progetto vive sulle donazioni: le query che fai qualcuno le sta pagando. "
         "Se non fai donazioni vuol dire che qualcun altro sta pagando per te.\n\n"
-        f"[👉 Fai una donazione su PayPal]({donation_url})",
+        + links,
         icon=None,
     )
 
@@ -133,9 +136,10 @@ def show_app():
         st.rerun()
 
     donation_url = quota_data.get("donation_url", "")
+    kofi_url = quota_data.get("kofi_url", "")
     total_cost_usd = quota_data.get("total_cost_usd", 0.0)
     if donation_url:
-        _donation_banner(donation_url, total_cost_usd)
+        _donation_banner(donation_url, total_cost_usd, kofi_url)
 
     # regular users: Chat, Ricerca, Storico
     # admins: + Status, Storage, Admin
