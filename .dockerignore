@@ -25,7 +25,6 @@ docker-data/
 .cache/
 
 # Infra that isn't needed at runtime
-infra/init/
 infra/compose/*.yml
 
-# Keep: infra/compose/bge-m3-model and apps/
+# Keep: infra/compose/bge-m3-model, infra/init/, and apps/
