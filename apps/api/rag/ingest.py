@@ -11,7 +11,7 @@ from apps.api.settings import settings
 from . import store
 from .chunk import chunk_pages
 from .embed import embed_texts, get_token_counter
-from .metadata import DocMeta, enrich_title_from_text, meta_from_filename
+from .metadata import DocMeta, enrich_date_from_text, enrich_title_from_text, meta_from_filename
 from .parse import parse_pdf
 
 
@@ -38,6 +38,7 @@ def ingest_pdf(
 
     first_pages_text = "\n".join(p.text for p in pages[:2])
     meta = enrich_title_from_text(first_pages_text, meta)
+    meta = enrich_date_from_text(first_pages_text, meta)
 
     chunks = chunk_pages(
         pages,

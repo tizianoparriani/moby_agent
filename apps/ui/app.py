@@ -5,7 +5,7 @@ import streamlit as st
 
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 
-st.set_page_config(page_title="Moby Prince RAG", layout="wide")
+st.set_page_config(page_title="Archivio Intelligente — Caso Moby Prince", layout="wide")
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -118,7 +118,12 @@ def _donation_banner(donation_url: str, total_cost_usd: float, kofi_url: str = "
 def show_app():
     # header row
     col_title, col_user, col_quota, col_logout = st.columns([4, 2, 2, 1])
-    col_title.title("Moby Prince")
+    col_title.title("Archivio Intelligente — Caso Moby Prince")
+    col_title.caption(
+        "Agente AI per la consultazione dell'archivio documentale del caso Moby Prince. "
+        "Poni domande in linguaggio naturale e ricevi risposte citate direttamente dalle fonti: "
+        "atti giudiziari, perizie, relazioni parlamentari e testimonianze."
+    )
     col_user.markdown(f"**{st.session_state.get('username', '')}**")
 
     quota_data: dict = {}

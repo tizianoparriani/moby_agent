@@ -83,6 +83,7 @@ def render_sources(sources: list[Source]) -> str:
     blocks = []
     for s in sources:
         pages = f"p. {s.page_start}" if s.page_start == s.page_end else f"p. {s.page_start}-{s.page_end}"
-        header = f"[DocID={s.doc_id}, Titolo={s.title}, Data={s.date or 'n/d'}, Pagine={pages}]"
+        date_part = f", Data={s.date}" if s.date else ""
+        header = f"[DocID={s.doc_id}, Titolo={s.title}{date_part}, Pagine={pages}]"
         blocks.append(f'{header}\nTesto: """{s.text}"""')
     return "\n\n".join(blocks)

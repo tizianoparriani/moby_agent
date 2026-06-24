@@ -31,6 +31,18 @@ _DATE_DMY = re.compile(r"(?<!\d)(\d{1,2})[._-](\d{1,2})[._-](\d{4})(?!\d)")
 # data20240409  /  bare 20240409
 _DATE_YMD = re.compile(r"(?:data)?(20\d{2})(\d{2})(\d{2})")
 
+# Italian month names for content-based date extraction
+_IT_MONTHS = {
+    "gennaio": 1, "febbraio": 2, "marzo": 3, "aprile": 4,
+    "maggio": 5, "giugno": 6, "luglio": 7, "agosto": 8,
+    "settembre": 9, "ottobre": 10, "novembre": 11, "dicembre": 12,
+}
+# e.g. "17 dicembre 2015" or "giovedì 17 dicembre 2015" or "3ª seduta: giovedì 17 dicembre 2015"
+_DATE_IT_TEXT = re.compile(
+    r"\b(\d{1,2})\s+(" + "|".join(_IT_MONTHS) + r")\s+((?:19|20)\d{2})\b",
+    re.IGNORECASE,
+)
+
 
 @dataclass
 class DocMeta:
@@ -223,6 +235,27 @@ def enrich_title_from_text(first_page_text: str, meta: DocMeta) -> DocMeta:
         title=f"Audizione di {witness}",
         act_type=meta.act_type or "audizione",
         date=meta.date,
+    )
+
+
+def enrich_date_from_text(first_pages_text: str, meta: DocMeta) -> DocMeta:
+    """Return a new DocMeta with date filled in from Italian text if still missing."""
+    if meta.date:
+        return meta
+    m = _DATE_IT_TEXT.search(first_pages_text)
+    if not m:
+        return meta
+    day = int(m.group(1))
+    month = _IT_MONTHS[m.group(2).lower()]
+    year = int(m.group(3))
+    if not (1 <= day <= 31 and 1 <= month <= 12):
+        return meta
+    return DocMeta(
+        doc_id=meta.doc_id,
+        filename=meta.filename,
+        title=meta.title,
+        act_type=meta.act_type,
+        date=f"{year:04d}-{month:02d}-{day:02d}",
     )
 
 
