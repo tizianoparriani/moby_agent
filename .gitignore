@@ -16,6 +16,7 @@ build/
 htmlcov/
 node_modules/
 data/
+inbox/
 logs/
 .terraform/
 .ipynb_checkpoints
