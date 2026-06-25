@@ -73,4 +73,10 @@ def retrieve(query: str, top_n: int | None = None) -> list[Retrieved]:
 
     fused = _rrf([vec_hits, bm25_hits], settings.RRF_K)
     ranked = sorted(fused.items(), key=lambda kv: kv[1], reverse=True)[:top_n]
-    return [Retrieved(chunk_id=cid, score=score, payload=payloads[cid]) for cid, score in ranked]
+    results = [Retrieved(chunk_id=cid, score=score, payload=payloads[cid]) for cid, score in ranked]
+
+    if settings.RERANKER_ENABLED:
+        from .rerank import rerank
+        results = rerank(query, results)
+
+    return results

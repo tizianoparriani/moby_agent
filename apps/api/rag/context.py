@@ -19,6 +19,7 @@ class Source:
     doc_id: str
     title: str
     date: str | None
+    legislature: str | None
     page_start: int
     page_end: int
     text: str
@@ -57,6 +58,7 @@ def _merge_contiguous(chunks: list[Retrieved]) -> list[Source]:
                     doc_id=doc_id,
                     title=p0.get("title") or doc_id,
                     date=p0.get("date"),
+                    legislature=p0.get("legislature"),
                     page_start=min(r.payload["page_start"] for r in run),
                     page_end=max(r.payload["page_end"] for r in run),
                     text="\n\n".join(r.payload.get("text", "") for r in run),
@@ -83,7 +85,8 @@ def render_sources(sources: list[Source]) -> str:
     blocks = []
     for s in sources:
         pages = f"p. {s.page_start}" if s.page_start == s.page_end else f"p. {s.page_start}-{s.page_end}"
+        legis_part = f", Commissione Parlamentare={s.legislature}" if s.legislature else ""
         date_part = f", Data={s.date}" if s.date else ""
-        header = f"[DocID={s.doc_id}, Titolo={s.title}{date_part}, Pagine={pages}]"
+        header = f"[DocID={s.doc_id}, Titolo={s.title}{legis_part}{date_part}, Pagine={pages}]"
         blocks.append(f'{header}\nTesto: """{s.text}"""')
     return "\n\n".join(blocks)

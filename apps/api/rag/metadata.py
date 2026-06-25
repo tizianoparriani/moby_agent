@@ -51,6 +51,7 @@ class DocMeta:
     title: str
     act_type: str | None
     date: str | None  # ISO yyyy-mm-dd
+    legislature: str | None = None  # e.g. "XIX Legislatura" for parliamentary commission docs
 
     def as_dict(self) -> dict:
         return asdict(self)
@@ -235,6 +236,7 @@ def enrich_title_from_text(first_page_text: str, meta: DocMeta) -> DocMeta:
         title=f"Audizione di {witness}",
         act_type=meta.act_type or "audizione",
         date=meta.date,
+        legislature=meta.legislature,
     )
 
 
@@ -256,6 +258,29 @@ def enrich_date_from_text(first_pages_text: str, meta: DocMeta) -> DocMeta:
         title=meta.title,
         act_type=meta.act_type,
         date=f"{year:04d}-{month:02d}-{day:02d}",
+        legislature=meta.legislature,
+    )
+
+
+_COMMISSIONE_PARLAMENTARE_RE = re.compile(r"COMMISSIONE\s+PARLAMENTARE", re.IGNORECASE)
+_LEGISLATURE_RE = re.compile(r"\b([IVXLCDM]{2,})\s+LEGISLATURA\b", re.IGNORECASE)
+
+
+def enrich_legislature_from_text(first_pages_text: str, meta: DocMeta) -> DocMeta:
+    """Return new DocMeta with legislature set when the doc is a parliamentary commission record."""
+    if not _COMMISSIONE_PARLAMENTARE_RE.search(first_pages_text):
+        return meta
+    m = _LEGISLATURE_RE.search(first_pages_text)
+    if not m:
+        return meta
+    legislature = f"{m.group(1).upper()} Legislatura"
+    return DocMeta(
+        doc_id=meta.doc_id,
+        filename=meta.filename,
+        title=meta.title,
+        act_type=meta.act_type,
+        date=meta.date,
+        legislature=legislature,
     )
 
 

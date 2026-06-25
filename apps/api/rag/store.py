@@ -120,6 +120,7 @@ def upsert_chunks(meta: DocMeta, chunks: list[Chunk], vectors: list[list[float]]
             "title": meta.title,
             "act_type": meta.act_type,
             "date": meta.date,
+            "legislature": meta.legislature,
             "filename": meta.filename,
         }
         points.append(

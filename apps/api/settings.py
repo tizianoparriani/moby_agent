@@ -37,9 +37,14 @@ class Settings(BaseSettings):
 
     # Retrieval (hybrid vector + BM25 → reciprocal-rank fusion)
     RETRIEVAL_TOP_K: int = 50      # candidates fetched from each store
-    FUSION_TOP_N: int = 10         # chunks kept after fusion
+    FUSION_TOP_N: int = 10         # chunks kept after fusion (input to reranker when enabled)
     RRF_K: int = 60                # reciprocal-rank-fusion constant
     CONTEXT_MAX_TOKENS: int = 4000  # cap on assembled source context
+
+    # Cross-encoder reranking (optional; set RERANKER_ENABLED=true to activate)
+    RERANKER_ENABLED: bool = True
+    RERANKER_MODEL: str = "BAAI/bge-reranker-v2-m3"
+    RERANKER_TOP_N: int = 5        # chunks kept after reranking
 
     # Claude (answer generation)
     CLAUDE_API_KEY: str = ""
