@@ -48,9 +48,15 @@ def _build_user_message(query: str, sources_block: str) -> str:
     )
 
 
-def answer_query(query: str) -> Answer:
-    chunks = retrieve(query)
-    sources = build_context(chunks)
+def answer_query(
+    query: str,
+    max_answer_tokens: int | None = None,
+    context_max_tokens: int | None = None,
+    reranker_top_n: int | None = None,
+    model: str | None = None,
+) -> Answer:
+    chunks = retrieve(query, reranker_top_n=reranker_top_n)
+    sources = build_context(chunks, max_tokens=context_max_tokens)
 
     if not sources:
         return Answer(
@@ -60,8 +66,8 @@ def answer_query(query: str) -> Answer:
         )
 
     kwargs: dict = {
-        "model": settings.CLAUDE_MODEL,
-        "max_tokens": settings.MAX_ANSWER_TOKENS,
+        "model": model or settings.CLAUDE_MODEL,
+        "max_tokens": max_answer_tokens or settings.MAX_ANSWER_TOKENS,
         "system": SYSTEM_PROMPT,
         "messages": [{"role": "user", "content": _build_user_message(query, render_sources(sources))}],
     }

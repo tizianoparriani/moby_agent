@@ -24,6 +24,7 @@ from apps.api.db import (
     get_user_token_usage,
     init_db,
     save_query,
+    set_superuser,
     upsert_admin,
 )
 from apps.api.pricing import query_cost_usd
@@ -51,12 +52,17 @@ def s3_client():
     )
 
 
+def _daily_limit(user: dict) -> int:
+    return settings.SUPERUSER_DAILY_QUERY_LIMIT if user.get("is_superuser") else settings.DAILY_QUERY_LIMIT
+
+
 def _check_quota(user: dict) -> None:
+    limit = _daily_limit(user)
     used = count_today_queries(user["id"])
-    if used >= settings.DAILY_QUERY_LIMIT:
+    if used >= limit:
         raise HTTPException(
             status_code=429,
-            detail=f"Limite giornaliero raggiunto ({settings.DAILY_QUERY_LIMIT} query/giorno)",
+            detail=f"Limite giornaliero raggiunto ({limit} query/giorno)",
         )
 
 
@@ -112,7 +118,7 @@ def register(payload: dict):
         with _conn() as con:
             con.execute("DELETE FROM users WHERE id = ?", (user["id"],))
         raise HTTPException(status_code=400, detail="Codice invito non valido o già utilizzato")
-    return {"token": create_token(username), "username": username, "is_admin": bool(user["is_admin"])}
+    return {"token": create_token(username), "username": username, "is_admin": bool(user["is_admin"]), "is_superuser": bool(user.get("is_superuser"))}
 
 
 @app.post("/auth/login")
@@ -126,6 +132,7 @@ def login(payload: dict):
         "token": create_token(username),
         "username": username,
         "is_admin": bool(user["is_admin"]),
+        "is_superuser": bool(user.get("is_superuser")),
     }
 
 
@@ -144,10 +151,11 @@ def my_quota(user: dict = Depends(get_current_user)):
         query_cost_usd(r["model"] or "", r["input_tokens"] or 0, r["output_tokens"] or 0)
         for r in rows
     )
+    limit = _daily_limit(user)
     return {
         "used": used,
-        "limit": settings.DAILY_QUERY_LIMIT,
-        "remaining": max(0, settings.DAILY_QUERY_LIMIT - used),
+        "limit": limit,
+        "remaining": max(0, limit - used),
         "total_cost_usd": round(total_cost, 6),
         "donation_url": settings.DONATION_URL,
         "kofi_url": settings.KOFI_URL,
@@ -179,6 +187,14 @@ def create_invite(user: dict = Depends(require_admin)):
 @app.get("/admin/invites")
 def list_invites(user: dict = Depends(require_admin)):
     return {"invites": get_invite_codes(user["id"])}
+
+
+@app.post("/admin/users/{username}/superuser")
+def toggle_superuser(username: str, payload: dict, _: dict = Depends(require_admin)):
+    value = bool(payload.get("value", True))
+    if not set_superuser(username, value):
+        raise HTTPException(status_code=404, detail="Utente non trovato")
+    return {"username": username, "is_superuser": value}
 
 
 # ── RAG ───────────────────────────────────────────────────────────────────────
@@ -216,7 +232,15 @@ def chat(payload: dict, user: dict = Depends(get_current_user)):
     query = payload.get("query", "")
     if not query.strip():
         raise HTTPException(status_code=400, detail="Query vuota")
-    result = answer_query(query)
+    is_super = bool(user.get("is_superuser"))
+    model = settings.SUPERUSER_CLAUDE_MODEL if is_super else settings.CLAUDE_MODEL
+    result = answer_query(
+        query,
+        model=model,
+        max_answer_tokens=settings.SUPERUSER_MAX_ANSWER_TOKENS if is_super else None,
+        context_max_tokens=settings.SUPERUSER_CONTEXT_MAX_TOKENS if is_super else None,
+        reranker_top_n=settings.SUPERUSER_RERANKER_TOP_N if is_super else None,
+    )
     citations = [
         {
             "doc_id": s.doc_id,
@@ -231,7 +255,7 @@ def chat(payload: dict, user: dict = Depends(get_current_user)):
         user["id"], "chat", query, result.answer, json.dumps(citations),
         input_tokens=result.input_tokens,
         output_tokens=result.output_tokens,
-        model=settings.CLAUDE_MODEL,
+        model=model,
     )
     cost = query_cost_usd(settings.CLAUDE_MODEL, result.input_tokens, result.output_tokens)
     return {"answer": result.answer, "citations": citations, "query_cost_usd": round(cost, 6)}

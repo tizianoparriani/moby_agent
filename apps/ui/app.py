@@ -64,6 +64,7 @@ def show_auth():
                         st.session_state.token = d["token"]
                         st.session_state.username = d["username"]
                         st.session_state.is_admin = d["is_admin"]
+                        st.session_state.is_superuser = d.get("is_superuser", False)
                         st.rerun()
                     else:
                         st.error(r.json().get("detail", "Errore di login"))
@@ -91,6 +92,7 @@ def show_auth():
                         st.session_state.token = d["token"]
                         st.session_state.username = d["username"]
                         st.session_state.is_admin = d["is_admin"]
+                        st.session_state.is_superuser = d.get("is_superuser", False)
                         st.rerun()
                     else:
                         st.error(r.json().get("detail", "Errore di registrazione"))
@@ -288,10 +290,48 @@ def show_app():
                 users = data.get("users", [])
                 if users:
                     import pandas as pd
-                    df = pd.DataFrame(users, columns=["username", "is_admin", "total_queries", "today_queries", "total_cost_usd"])
-                    df.columns = ["Username", "Admin", "Query totali", "Query oggi", "Costo tot. ($)"]
+                    df = pd.DataFrame(users, columns=["username", "is_admin", "is_superuser", "total_queries", "today_queries", "total_cost_usd"])
+                    df.columns = ["Username", "Admin", "Super", "Query totali", "Query oggi", "Costo tot. ($)"]
                     df["Admin"] = df["Admin"].map({0: "", 1: "✓"})
+                    df["Super"] = df["Super"].map({0: "", 1: "⚡"})
                     st.dataframe(df, use_container_width=True, hide_index=True)
+
+                    st.divider()
+                    st.subheader("Promuovi / Rimuovi Super User")
+                    usernames = [u["username"] for u in users if not u["is_admin"]]
+                    if usernames:
+                        col_sel, col_btn_add, col_btn_rem = st.columns([3, 1, 1])
+                        target = col_sel.selectbox("Utente", usernames, key="superuser_target")
+                        if col_btn_add.button("⚡ Promuovi", key="su_promote"):
+                            try:
+                                r2 = requests.post(
+                                    f"{API_URL}/admin/users/{target}/superuser",
+                                    headers=_headers(),
+                                    json={"value": True},
+                                    timeout=5,
+                                )
+                                r2 = _handle(r2)
+                                r2.raise_for_status()
+                                st.success(f"{target} promosso a Super User.")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Errore: {e}")
+                        if col_btn_rem.button("Rimuovi", key="su_demote"):
+                            try:
+                                r2 = requests.post(
+                                    f"{API_URL}/admin/users/{target}/superuser",
+                                    headers=_headers(),
+                                    json={"value": False},
+                                    timeout=5,
+                                )
+                                r2 = _handle(r2)
+                                r2.raise_for_status()
+                                st.success(f"Super User rimosso da {target}.")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Errore: {e}")
+                    else:
+                        st.info("Nessun utente non-admin disponibile.")
                 else:
                     st.info("Nessun utente registrato.")
             except Exception as e:

@@ -75,8 +75,8 @@ def _merge_contiguous(chunks: list[Retrieved]) -> list[Source]:
     return sources
 
 
-def build_context(chunks: list[Retrieved]) -> list[Source]:
-    selected = _select_within_budget(chunks, settings.CONTEXT_MAX_TOKENS)
+def build_context(chunks: list[Retrieved], max_tokens: int | None = None) -> list[Source]:
+    selected = _select_within_budget(chunks, max_tokens or settings.CONTEXT_MAX_TOKENS)
     return _merge_contiguous(selected)
 
 

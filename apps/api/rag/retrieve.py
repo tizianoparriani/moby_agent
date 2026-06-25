@@ -52,7 +52,7 @@ def _rrf(ranked_lists: list[list[dict]], k: int) -> dict[str, float]:
     return scores
 
 
-def retrieve(query: str, top_n: int | None = None) -> list[Retrieved]:
+def retrieve(query: str, top_n: int | None = None, reranker_top_n: int | None = None) -> list[Retrieved]:
     """Return the top-N chunks for a query, fused across both stores."""
     if not query.strip():
         return []
@@ -77,6 +77,6 @@ def retrieve(query: str, top_n: int | None = None) -> list[Retrieved]:
 
     if settings.RERANKER_ENABLED:
         from .rerank import rerank
-        results = rerank(query, results)
+        results = rerank(query, results, top_n=reranker_top_n)
 
     return results

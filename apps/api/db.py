@@ -37,6 +37,7 @@ def init_db() -> None:
                 username      TEXT    UNIQUE NOT NULL,
                 password_hash TEXT    NOT NULL,
                 is_admin      INTEGER NOT NULL DEFAULT 0,
+                is_superuser  INTEGER NOT NULL DEFAULT 0,
                 created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
             );
             CREATE TABLE IF NOT EXISTS queries (
@@ -61,15 +62,26 @@ def init_db() -> None:
         _add_column_if_missing(con, "queries", "input_tokens",  "INTEGER")
         _add_column_if_missing(con, "queries", "output_tokens", "INTEGER")
         _add_column_if_missing(con, "queries", "model",         "TEXT")
+        _add_column_if_missing(con, "users",   "is_superuser",  "INTEGER NOT NULL DEFAULT 0")
 
 
 def get_user_by_username(username: str) -> dict | None:
     with _conn() as con:
         row = con.execute(
-            "SELECT id, username, password_hash, is_admin FROM users WHERE username = ?",
+            "SELECT id, username, password_hash, is_admin, is_superuser FROM users WHERE username = ?",
             (username,),
         ).fetchone()
     return dict(row) if row else None
+
+
+def set_superuser(username: str, value: bool) -> bool:
+    """Set or clear the superuser flag. Returns False if the user doesn't exist."""
+    with _conn() as con:
+        cur = con.execute(
+            "UPDATE users SET is_superuser = ? WHERE username = ?",
+            (int(value), username),
+        )
+    return cur.rowcount > 0
 
 
 def create_user(username: str, password_hash: str, is_admin: bool = False) -> dict | None:
@@ -162,6 +174,7 @@ def get_all_usage() -> list[dict]:
                 u.id,
                 u.username,
                 u.is_admin,
+                u.is_superuser,
                 COUNT(q.id) AS total_queries,
                 SUM(CASE WHEN date(q.created_at) = date('now') THEN 1 ELSE 0 END) AS today_queries,
                 COALESCE(SUM(q.input_tokens), 0)  AS total_input_tokens,
