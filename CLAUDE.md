@@ -46,7 +46,7 @@ docker compose --env-file .env -f infra/compose/docker-compose.dev.yml up -d qdr
 python infra/init/init_qdrant.py && python infra/init/init_meili.py && python infra/init/init_minio.py
 
 # Ingest PDFs (host; export localhost *_URL/*_ENDPOINT first). --no-ocr disables OCR fallback.
-python -m apps.api.ingest_cli data/sample/*.pdf
+python -m apps.api.ingest_cli data/*.pdf
 
 # Run the API / UI locally (without Docker) — also need localhost overrides
 uvicorn apps.api.main:app --reload --port 8000
@@ -58,6 +58,6 @@ UI is exposed on `${UI_PORT}` (default 8501); API on 8000.
 ## Notes
 
 - There is **no test framework, linter, or CI** configured.
-- Sample corpus lives in `data/sample/` (git-ignored), all Italian; mostly text-based PDFs, OCR is a fallback for older scanned docs.
+- Corpus lives in `data/` (git-ignored), all Italian; mostly text-based PDFs, OCR is a fallback for older scanned docs.
 - Copy `.env.example` to `.env` and set `CLAUDE_API_KEY` before bringing up the stack; Compose reads `.env` via `env_file` and `${VAR}` interpolation.
 - When implementing the real `/chat` flow, use the Claude API conventions `claude-sonnet-4-6` with `anthropic-version: 2023-06-01` (a Claude connectivity check previously lived in `apps/api/test.py`, removed; recover from git history `4367ad2` if needed).

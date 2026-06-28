@@ -148,10 +148,10 @@ def show_app():
     if donation_url:
         _donation_banner(donation_url, total_cost_usd, kofi_url)
 
-    # regular users: Chat, Ricerca, Storico
+    # regular users: Chat, Ricerca, Materiali, Storico
     # admins: + Status, Storage, Admin
     is_admin = st.session_state.get("is_admin", False)
-    tab_names = ["Chat", "Ricerca", "Storico"]
+    tab_names = ["Chat", "Ricerca", "Materiali", "Storico"]
     if is_admin:
         tab_names += ["Status", "Storage", "Admin"]
     tab_map = {name: tab for name, tab in zip(tab_names, st.tabs(tab_names))}
@@ -183,8 +183,14 @@ def show_app():
                         if citations:
                             st.divider()
                             st.caption("Fonti citate")
+                            _token = st.session_state.get("token", "")
                             for c in citations:
-                                st.markdown(f"- **{c.get('title')}** ({c.get('date') or 'n/d'}), {_format_pages(c)}")
+                                doc_id = c.get("doc_id")
+                                label = f"- **{c.get('title')}** ({c.get('date') or 'n/d'}), {_format_pages(c)}"
+                                if doc_id:
+                                    dl = f"{API_URL}/documents/{doc_id}/download?token={_token}"
+                                    label += f'  <a href="{dl}" target="_blank">📥</a>'
+                                st.markdown(label, unsafe_allow_html=True)
                         qc = res.get("query_cost_usd")
                         if qc is not None:
                             cost_str = f"${qc:.4f}" if qc >= 0.0001 else "< $0.0001"
@@ -221,6 +227,44 @@ def show_app():
                 except Exception as e:
                     st.error(f"Errore ricerca: {e}")
 
+    # ── Materiali ─────────────────────────────────────────────────────────────
+    with tab_map["Materiali"]:
+        st.subheader("Archivio documentale")
+        try:
+            r = requests.get(f"{API_URL}/documents", headers=_headers(), timeout=10)
+            r = _handle(r)
+            r.raise_for_status()
+            docs = r.json().get("documents", [])
+        except Exception as e:
+            st.error(f"Errore caricamento archivio: {e}")
+            docs = []
+
+        if docs:
+            _token = st.session_state.get("token", "")
+            st.caption(f"{len(docs)} documenti disponibili")
+
+            col_search, col_type = st.columns([3, 2])
+            search_term = col_search.text_input("Cerca per titolo", key="mat_search")
+            act_types = sorted({d["act_type"] for d in docs if d.get("act_type")})
+            selected_type = col_type.selectbox("Tipo atto", ["— tutti —"] + act_types, key="mat_type")
+
+            filtered = [
+                d for d in docs
+                if (not search_term or search_term.lower() in (d.get("title") or "").lower())
+                and (selected_type == "— tutti —" or d.get("act_type") == selected_type)
+            ]
+            st.caption(f"{len(filtered)} risultati")
+
+            for doc in filtered:
+                col_info, col_btn = st.columns([6, 1])
+                title = doc.get("title") or doc.get("filename") or doc["doc_id"]
+                parts = [p for p in [doc.get("act_type"), doc.get("legislature"), doc.get("date")] if p]
+                col_info.markdown(f"**{title}**  \n{' · '.join(parts)}")
+                dl_url = f"{API_URL}/documents/{doc['doc_id']}/download?token={_token}"
+                col_btn.link_button("📥 PDF", dl_url)
+        elif not docs:
+            st.info("Nessun documento disponibile. Esegui l'ingestione dei PDF per popolare l'archivio.")
+
     # ── Storico ───────────────────────────────────────────────────────────────
     with tab_map["Storico"]:
         st.subheader("Storico delle query")
@@ -239,8 +283,14 @@ def show_app():
                         citations = item.get("citations", [])
                         if citations:
                             st.caption("Fonti:")
+                            _token = st.session_state.get("token", "")
                             for c in citations:
-                                st.markdown(f"- **{c.get('title')}** ({c.get('date') or 'n/d'}), {_format_pages(c)}")
+                                doc_id = c.get("doc_id")
+                                label = f"- **{c.get('title')}** ({c.get('date') or 'n/d'}), {_format_pages(c)}"
+                                if doc_id:
+                                    dl = f"{API_URL}/documents/{doc_id}/download?token={_token}"
+                                    label += f'  <a href="{dl}" target="_blank">📥</a>'
+                                st.markdown(label, unsafe_allow_html=True)
                 else:
                     st.caption(f"🔍 {ts} — {item['query'][:80]}")
         except Exception as e:

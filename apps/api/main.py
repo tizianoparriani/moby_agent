@@ -3,9 +3,11 @@ from contextlib import asynccontextmanager
 
 import boto3
 import requests
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi.responses import RedirectResponse
 
 from apps.api.auth import (
+    _decode_token,
     create_token,
     get_current_user,
     hash_password,
@@ -259,6 +261,83 @@ def chat(payload: dict, user: dict = Depends(get_current_user)):
     )
     cost = query_cost_usd(settings.CLAUDE_MODEL, result.input_tokens, result.output_tokens)
     return {"answer": result.answer, "citations": citations, "query_cost_usd": round(cost, 6)}
+
+
+# ── documents ─────────────────────────────────────────────────────────────────
+
+def _get_user_any_token(
+    authorization: str | None = Header(None),
+    token: str | None = Query(None),
+) -> dict:
+    """Accept JWT via Authorization header or ?token= query param (for browser download links)."""
+    raw = None
+    if authorization and authorization.startswith("Bearer "):
+        raw = authorization.split(" ", 1)[1]
+    elif token:
+        raw = token
+    if not raw:
+        raise HTTPException(status_code=401, detail="Token mancante")
+    username = _decode_token(raw)
+    user = get_user_by_username(username)
+    if not user:
+        raise HTTPException(status_code=401, detail="Utente non trovato")
+    return user
+
+
+@app.get("/documents")
+def list_documents(user: dict = Depends(get_current_user)):
+    from qdrant_client import QdrantClient
+
+    client = QdrantClient(url=settings.QDRANT_URL)
+    seen: dict[str, dict] = {}
+    offset = None
+    while True:
+        records, offset = client.scroll(
+            collection_name=settings.QDRANT_COLLECTION,
+            with_payload=True,
+            with_vectors=False,
+            limit=256,
+            offset=offset,
+        )
+        for r in records:
+            doc_id = r.payload.get("doc_id")
+            if doc_id and doc_id not in seen:
+                seen[doc_id] = {
+                    "doc_id": doc_id,
+                    "title": r.payload.get("title"),
+                    "date": r.payload.get("date"),
+                    "act_type": r.payload.get("act_type"),
+                    "legislature": r.payload.get("legislature"),
+                    "filename": r.payload.get("filename"),
+                }
+        if offset is None:
+            break
+
+    docs = sorted(seen.values(), key=lambda d: (d["date"] or "", d["title"] or ""))
+    return {"documents": docs}
+
+
+@app.get("/documents/{doc_id}/download")
+def download_document(
+    doc_id: str,
+    user: dict = Depends(_get_user_any_token),
+):
+    from botocore.exceptions import ClientError
+
+    s3 = s3_client()
+    key = f"pdfs/{doc_id}.pdf"
+    try:
+        s3.head_object(Bucket=settings.MINIO_BUCKET, Key=key)
+    except ClientError as e:
+        if e.response["Error"]["Code"] in ("404", "NoSuchKey"):
+            raise HTTPException(status_code=404, detail="PDF non disponibile (documento non ancora caricato)")
+        raise
+    url = s3.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": settings.MINIO_BUCKET, "Key": key},
+        ExpiresIn=3600,
+    )
+    return RedirectResponse(url=url)
 
 
 # ── storage ───────────────────────────────────────────────────────────────────

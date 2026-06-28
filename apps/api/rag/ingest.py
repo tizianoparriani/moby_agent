@@ -57,6 +57,27 @@ def ingest_pdf(
     vectors = embed_texts([c.text for c in chunks])
     store.upsert_chunks(meta, chunks, vectors)
 
+    # Upload original PDF to MinIO so it can be downloaded via /documents/{doc_id}/download.
+    # Non-fatal: if MinIO is unavailable the rest of the ingest still succeeds.
+    try:
+        import boto3
+        s3 = boto3.client(
+            "s3",
+            endpoint_url=settings.MINIO_ENDPOINT,
+            aws_access_key_id=settings.MINIO_ROOT_USER,
+            aws_secret_access_key=settings.MINIO_ROOT_PASSWORD,
+            region_name=settings.MINIO_REGION,
+        )
+        with open(path, "rb") as fh:
+            s3.put_object(
+                Bucket=settings.MINIO_BUCKET,
+                Key=f"pdfs/{meta.doc_id}.pdf",
+                Body=fh,
+                ContentType="application/pdf",
+            )
+    except Exception:
+        pass
+
     return IngestResult(
         doc_id=meta.doc_id,
         filename=meta.filename,
